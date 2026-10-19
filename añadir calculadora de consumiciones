@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#173d32">
+<title>Calculadora de consumiciones</title>
+<style>
+:root {
+  --green: #173d32;
+  --light: #f3f6f3;
+  --orange: #f2a541;
+  --red: #b83232;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--light);
+  color: #202923;
+}
+header {
+  background: var(--green);
+  color: white;
+  padding: 20px 16px;
+  text-align: center;
+}
+header h1 { margin: 0 0 6px; font-size: 25px; }
+header p { margin: 0; opacity: .85; font-size: 14px; }
+main { max-width: 850px; margin: auto; padding: 16px; }
+.total-box {
+  background: white;
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+  box-shadow: 0 2px 8px #0000000c;
+  margin-bottom: 16px;
+}
+.total-box .label { color: #536158; font-size: 15px; }
+#total { font-size: 42px; font-weight: bold; color: var(--green); margin: 5px 0; }
+#resumen { font-size: 14px; color: #536158; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.product {
+  min-height: 118px;
+  border: 2px solid #dce5dd;
+  border-radius: 14px;
+  background: white;
+  padding: 12px 5px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #20372b;
+  overflow-wrap: anywhere;
+  touch-action: manipulation;
+}
+.product:active { transform: scale(.97); }
+.product .price {
+  display: block;
+  font-size: 18px;
+  color: #24724c;
+  margin-top: 8px;
+}
+.product .qty {
+  display: block;
+  margin-top: 7px;
+  color: #536158;
+  font-size: 13px;
+  font-weight: normal;
+}
+.product.used { border-color: #64a47b; background: #eaf5ed; }
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.action {
+  padding: 14px 8px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  background: var(--green);
+  color: white;
+}
+.action.secondary { background: #e0e7e1; color: #20372b; }
+.action.danger { background: #f8e5e3; color: var(--red); }
+.panel {
+  background: white;
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 16px;
+}
+.panel h2 { font-size: 19px; margin-top: 0; }
+details > summary { cursor: pointer; font-weight: bold; }
+.edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px;
+  gap: 8px;
+  margin: 10px 0;
+}
+input {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #cbd5cd;
+  border-radius: 8px;
+  font-size: 16px;
+}
+.hint { color: #5c685f; font-size: 13px; line-height: 1.5; }
+#mensaje { min-height: 20px; color: var(--green); font-size: 14px; }
+@media (max-width: 430px) {
+  main { padding: 10px; }
+  .grid { gap: 7px; }
+  .product { min-height: 108px; font-size: 13px; padding: 9px 3px; }
+  .product .price { font-size: 16px; }
+  #total { font-size: 36px; }
+  .action { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🍻 Cuenta de consumiciones</h1>
+  <p>Toca un producto para añadirlo a la cuenta</p>
+</header>
+
+<main>
+  <section class="total-box">
+    <div class="label">TOTAL DE LA CUENTA</div>
+    <div id="total">0,00 €</div>
+    <div id="resumen">0 consumiciones</div>
+  </section>
+
+  <section class="grid" id="productos"></section>
+
+  <section class="actions">
+    <button class="action secondary" id="deshacer">↩ Deshacer último</button>
+    <button class="action danger" id="nueva">＋ Nueva cuenta</button>
+  </section>
+
+  <div id="mensaje" role="status"></div>
+
+  <section class="panel">
+    <details>
+      <summary>⚙️ Editar productos y precios</summary>
+      <p class="hint">
+        Cambia los nombres y precios según tus necesidades.
+        Pulsa «Guardar productos» para conservar los cambios en este dispositivo.
+      </p>
+      <div id="editor"></div>
+      <button class="action" id="guardar" style="width:100%">
+        Guardar productos
+      </button>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>Detalle de la cuenta</h2>
+    <div id="detalle" class="hint">Todavía no hay consumiciones.</div>
+  </section>
+
+  <p class="hint">
+    Esta versión guarda los productos en el navegador de este dispositivo.
+    La cuenta actual se mantiene mientras la página esté abierta; al recargarla
+    o cerrarla, empieza una cuenta nueva. No introduzcas datos personales de clientes.
+  </p>
+</main>
+
+<script>
+const iniciales = [
+  { nombre: "Cerveza", precio: 2 },
+  { nombre: "Refresco", precio: 2 },
+  { nombre: "Copa de vino", precio: 2.50 },
+  { nombre: "Botella de vino", precio: 15 },
+  { nombre: "Agua", precio: 1 },
+  { nombre: "Jamón / montaditos", precio: 12 },
+  { nombre: "Producto 7", precio: 0 },
+  { nombre: "Producto 8", precio: 0 },
+  { nombre: "Producto 9", precio: 0 },
+  { nombre: "Producto 10", precio: 0 },
+  { nombre: "Producto 11", precio: 0 },
+  { nombre: "Producto 12", precio: 0 }
+];
+
+function cargarProductos() {
+  try {
+    const guardados = localStorage.getItem("consumiciones_productos");
+    if (guardados) {
+      const datos = JSON.parse(guardados);
+      if (Array.isArray(datos) && datos.length === 12) {
+        return datos.map((p, i) => ({
+          nombre: String(p.nombre ?? iniciales[i].nombre).slice(0, 60),
+          precio: Math.max(0, Number(p.precio) || 0)
+        }));
+      }
+    }
+  } catch (e) {}
+  return iniciales.map(p => ({...p}));
+}
+
+let productos = cargarProductos();
+let cantidades = Array(12).fill(0);
+let historial = [];
+
+const euros = valor => valor.toLocaleString("es-ES", {
+  style: "currency", currency: "EUR"
+});
+
+function totalCuenta() {
+  return productos.reduce((suma, p, i) =>
+    suma + p.precio * cantidades[i], 0);
+}
+
+function numeroConsumiciones() {
+  return cantidades.reduce((suma, n) => suma + n, 0);
+}
+
+function render() {
+  document.getElementById("productos").innerHTML = productos.map((p, i) => `
+    <button class="product ${cantidades[i] ? "used" : ""}"
+      data-producto="${i}" aria-label="Añadir ${escapar(p.nombre)}">
+      ${escapar(p.nombre)}
+      <span class="price">${euros(p.precio)}</span>
+      <span class="qty">Cantidad: ${cantidades[i]}</span>
+    </button>
+  `).join("");
+
+  document.getElementById("total").textContent = euros(totalCuenta());
+
+  const n = numeroConsumiciones();
+  document.getElementById("resumen").textContent =
+    `${n} ${n === 1 ? "consumición" : "consumiciones"}`;
+
+  document.getElementById("detalle").innerHTML = n
+    ? productos.map((p, i) => cantidades[i] ? `
+        <p>${escapar(p.nombre)} × ${cantidades[i]}
+        <span style="float:right;font-weight:bold">
+          ${euros(p.precio * cantidades[i])}
+        </span></p>
+      ` : "").join("")
+    : "Todavía no hay consumiciones.";
+
+  document.getElementById("deshacer").disabled = historial.length === 0;
+  document.getElementById("deshacer").style.opacity =
+    historial.length === 0 ? ".5" : "1";
+}
+
+function escapar(texto) {
+  return String(texto).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;",
+    '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+document.getElementById("productos").addEventListener("click", e => {
+  const boton = e.target.closest("[data-producto]");
+  if (!boton) return;
+  const i = Number(boton.dataset.producto);
+  historial.push(i);
+  cantidades[i]++;
+  document.getElementById("mensaje").textContent =
+    `Añadido: ${productos[i].nombre}`;
+  render();
+});
+
+document.getElementById("deshacer").addEventListener("click", () => {
+  const i = historial.pop();
+  if (i === undefined) return;
+  cantidades[i] = Math.max(0, cantidades[i] - 1);
+  document.getElementById("mensaje").textContent =
+    `Última consumición deshecha: ${productos[i].nombre}`;
+  render();
+});
+
+document.getElementById("nueva").addEventListener("click", () => {
+  if (numeroConsumiciones() > 0 &&
+      !confirm("¿Empezar una cuenta nueva? Se borrarán las consumiciones actuales.")) {
+    return;
+  }
+  cantidades = Array(12).fill(0);
+  historial = [];
+  document.getElementById("mensaje").textContent =
+    "Cuenta nueva preparada.";
+  render();
+});
+
+function renderEditor() {
+  document.getElementById("editor").innerHTML = productos.map((p, i) => `
+    <div class="edit-row">
+      <input data-nombre="${i}" aria-label="Nombre del producto ${i+1}"
+        maxlength="60" value="${escapar(p.nombre)}">
+      <input data-precio="${i}" aria-label="Precio del producto ${i+1}"
+        type="number" min="0" max="999999" step="0.01"
+        value="${p.precio}" inputmode="decimal">
+    </div>
+  `).join("");
+}
+
+document.getElementById("guardar").addEventListener("click", () => {
+  const nuevos = [];
+  for (let i = 0; i < 12; i++) {
+    const nombre = document.querySelector(`[data-nombre="${i}"]`).value.trim();
+    const precioTexto = document.querySelector(`[data-precio="${i}"]`).value;
+    const precio = Number(precioTexto);
+
+    if (!nombre || precioTexto === "" || !Number.isFinite(precio) || precio < 0) {
+      alert(`Revisa el nombre y el precio del producto ${i + 1}.`);
+      return;
+    }
+    nuevos.push({ nombre, precio });
+  }
+
+  productos = nuevos;
+  try {
+    localStorage.setItem("consumiciones_productos", JSON.stringify(productos));
+    document.getElementById("mensaje").textContent =
+      "Productos guardados en este dispositivo.";
+  } catch (e) {
+    document.getElementById("mensaje").textContent =
+      "No se pudo guardar la configuración en este navegador.";
+  }
+  renderEditor();
+  render();
+});
+
+renderEditor();
+render();
+</script>
+</body>
+</html>
